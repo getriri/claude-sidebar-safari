@@ -5,6 +5,8 @@
 // @description  Angedockte Chat-Seitenleiste mit Browser-Agent & Modellwechsel (Groq / Gemini) – ohne Xcode
 // @author       Irene
 // @match        *://*/*
+// @downloadURL  https://raw.githubusercontent.com/getriri/claude-sidebar-safari/main/userscripts/ask-claude.user.js
+// @updateURL    https://raw.githubusercontent.com/getriri/claude-sidebar-safari/main/userscripts/ask-claude.user.js
 // @grant        GM.xmlHttpRequest
 // @grant        GM.getValue
 // @grant        GM.setValue
