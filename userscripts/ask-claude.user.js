@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Claude Sidebar
 // @namespace    irene.claude.safari
-// @version      0.10.1
+// @version      0.11.0
 // @description  Angedockte Chat-Seitenleiste mit Browser-Agent & Modellwechsel (Groq / Gemini) – ohne Xcode
 // @author       Irene
 // @match        *://*/*
@@ -31,6 +31,8 @@
   ];
 
   let selectedModelId = "groq-llama-70b";
+  let theme = "auto"; // "light" | "dark" | "auto"
+  let history = []; // [{id, title, ts, transcript}]
   let state = { transcript: [], task: null };
   let usage = { date: "", count: 0 };
   let busy = false;
@@ -52,51 +54,87 @@
         position: fixed; right: 22px; bottom: 22px; z-index: 2147483647;
         width: 54px; height: 54px; border-radius: 50%; border: none;
         background: ${ACCENT}; color: #fff; font-size: 24px; cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0,0,0,.28); display: flex;
+        box-shadow: 0 6px 20px rgba(0,0,0,.32); display: flex;
         align-items: center; justify-content: center; transition: transform .15s;
+        -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
       }
       #cl-launcher:hover { transform: scale(1.06); }
       #cl-panel {
+        --bg: rgba(245,244,239,.68);
+        --surface: rgba(255,255,255,.60);
+        --text: #1d1d1f;
+        --muted: #8c877e;
+        --border: rgba(0,0,0,.08);
+        --input: rgba(255,255,255,.55);
         position: fixed; top: 0; right: 0; height: 100vh; width: 400px;
-        max-width: 92vw; z-index: 2147483647; background: #f5f4ef;
-        box-shadow: -4px 0 24px rgba(0,0,0,.18); display: flex; flex-direction: column;
+        max-width: 92vw; z-index: 2147483647; background: var(--bg);
+        -webkit-backdrop-filter: blur(26px) saturate(1.7); backdrop-filter: blur(26px) saturate(1.7);
+        box-shadow: -10px 0 44px rgba(0,0,0,.24); display: flex; flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #1d1d1f; transform: translateX(100%); transition: transform .22s ease;
+        color: var(--text); transform: translateX(100%);
+        transition: transform .28s cubic-bezier(.4,0,.2,1);
+        border-left: 1px solid var(--border);
+      }
+      #cl-panel.dark {
+        --bg: rgba(28,28,30,.60);
+        --surface: rgba(78,78,82,.48);
+        --text: #f3f2ef;
+        --muted: #a6a199;
+        --border: rgba(255,255,255,.13);
+        --input: rgba(255,255,255,.09);
       }
       #cl-panel.open { transform: translateX(0); }
       #cl-header {
-        display: flex; align-items: center; gap: 6px; padding: 12px 14px;
-        border-bottom: 1px solid #e7e4dc; background: #fff;
+        display: flex; align-items: center; gap: 5px; padding: 11px 12px;
+        border-bottom: 1px solid var(--border); background: var(--surface);
+        -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
       }
-      #cl-model { flex: 1; min-width: 0; font-size: 13px; font-family: inherit;
-        border: 1px solid #e0ddd4; border-radius: 8px; padding: 5px 6px;
-        background: #faf9f6; color: #1d1d1f; cursor: pointer; }
-      #cl-usage { font-size: 11px; color: #b3aea3; white-space: nowrap; }
+      #cl-model { flex: 1; min-width: 0; font-size: 12px; font-family: inherit;
+        border: 1px solid var(--border); border-radius: 9px; padding: 5px 6px;
+        background: var(--input); color: var(--text); cursor: pointer; }
+      #cl-usage { font-size: 10px; color: var(--muted); white-space: nowrap; }
       #cl-header button {
-        border: none; background: transparent; cursor: pointer; font-size: 16px;
-        color: #888; padding: 4px;
+        border: none; background: transparent; cursor: pointer; font-size: 15px;
+        color: var(--muted); padding: 3px; line-height: 1;
       }
+      #cl-header button:hover { color: var(--text); }
       #cl-list { flex: 1; overflow-y: auto; padding: 16px; display: flex;
-        flex-direction: column; gap: 12px; }
-      .cl-msg { max-width: 85%; padding: 10px 13px; border-radius: 14px;
-        font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+        flex-direction: column; gap: 10px; }
+      .cl-msg { max-width: 85%; padding: 10px 13px; border-radius: 16px;
+        font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;
+        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
       .cl-msg.user { align-self: flex-end; background: ${ACCENT}; color: #fff;
-        border-bottom-right-radius: 4px; }
-      .cl-msg.assistant { align-self: flex-start; background: #fff; color: #1d1d1f;
-        border: 1px solid #e7e4dc; border-bottom-left-radius: 4px; }
-      .cl-msg.thinking { color: #999; font-style: italic; }
-      .cl-status { align-self: center; font-size: 12px; color: #9a948a;
+        border-bottom-right-radius: 5px; }
+      .cl-msg.assistant { align-self: flex-start; background: var(--surface); color: var(--text);
+        border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+      .cl-msg.thinking { color: var(--muted); font-style: italic; }
+      .cl-status { align-self: center; font-size: 12px; color: var(--muted);
         font-style: italic; text-align: center; }
-      .cl-empty { color: #b3aea3; font-size: 13px; text-align: center; margin-top: 40px; }
-      #cl-input-area { border-top: 1px solid #e7e4dc; padding: 12px; background: #fff;
+      .cl-empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; }
+      #cl-input-area { border-top: 1px solid var(--border); padding: 12px; background: var(--surface);
+        -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
         display: flex; gap: 8px; align-items: flex-end; }
-      #cl-input { flex: 1; resize: none; border: 1px solid #e0ddd4; border-radius: 10px;
+      #cl-input { flex: 1; resize: none; border: 1px solid var(--border); border-radius: 12px;
         padding: 9px 11px; font-size: 14px; font-family: inherit; max-height: 140px;
-        outline: none; background: #faf9f6; }
+        outline: none; background: var(--input);
+        color: var(--text) !important; -webkit-text-fill-color: var(--text); }
+      #cl-input::placeholder { color: var(--muted); -webkit-text-fill-color: var(--muted); }
       #cl-input:focus { border-color: ${ACCENT}; }
-      #cl-send { border: none; background: ${ACCENT}; color: #fff; border-radius: 10px;
+      #cl-send { border: none; background: ${ACCENT}; color: #fff; border-radius: 12px;
         width: 40px; height: 40px; cursor: pointer; font-size: 17px; flex-shrink: 0; }
       #cl-send:disabled { opacity: .5; cursor: default; }
+      #cl-history { position: absolute; left: 0; right: 0; top: 47px; bottom: 0;
+        background: var(--bg); -webkit-backdrop-filter: blur(26px); backdrop-filter: blur(26px);
+        z-index: 5; display: none; flex-direction: column; overflow-y: auto; padding: 12px; }
+      #cl-history.show { display: flex; }
+      .cl-hist-head { font-size: 12px; color: var(--muted); margin: 2px 2px 10px; }
+      .cl-hist-item { padding: 10px 12px; border-radius: 11px; background: var(--surface);
+        border: 1px solid var(--border); margin-bottom: 8px; cursor: pointer; }
+      .cl-hist-item:hover { border-color: ${ACCENT}; }
+      .cl-hist-title { font-size: 13px; color: var(--text); font-weight: 500;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .cl-hist-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+      .cl-hist-empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 30px; line-height: 1.6; }
       #cl-cursor { position: fixed; left: 50%; top: 50%; z-index: 2147483646;
         width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
         pointer-events: none; background: rgba(217,119,87,.30);
@@ -132,11 +170,14 @@
         <span style="color:${ACCENT};font-size:18px;">✦</span>
         <select id="cl-model" title="Modell wählen"></select>
         <span id="cl-usage" title="Anfragen heute (Gratis-Limit setzt sich täglich zurück)">0 heute</span>
+        <button id="cl-hist-btn" title="Chat-Verlauf">🕘</button>
+        <button id="cl-theme" title="Hell / Dunkel">🌙</button>
         <button id="cl-key" title="API-Key des Modells ändern">🔑</button>
         <button id="cl-clear" title="Neuer Chat / Stopp">⟳</button>
         <button id="cl-close" title="Schließen">✕</button>
       </div>
       <div id="cl-list"></div>
+      <div id="cl-history"></div>
       <div id="cl-input-area">
         <textarea id="cl-input" rows="1" placeholder="Nachricht an Claude…"></textarea>
         <button id="cl-send" title="Senden">➤</button>
@@ -158,6 +199,8 @@
     panelEl.querySelector("#cl-close").addEventListener("click", closePanel);
     panelEl.querySelector("#cl-clear").addEventListener("click", clearChat);
     panelEl.querySelector("#cl-key").addEventListener("click", changeKey);
+    panelEl.querySelector("#cl-theme").addEventListener("click", toggleTheme);
+    panelEl.querySelector("#cl-hist-btn").addEventListener("click", toggleHistory);
     sendBtn.addEventListener("click", onSend);
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
@@ -186,9 +229,85 @@
     launcherEl.style.display = "flex";
   }
   function clearChat() {
+    archiveCurrent();
     state = { transcript: [], task: null };
     saveState();
     renderAll();
+    const box = panelEl.querySelector("#cl-history");
+    if (box) box.classList.remove("show");
+  }
+
+  // ---------- Theme (Hell/Dunkel) ----------
+  function systemDark() {
+    try { return window.matchMedia("(prefers-color-scheme: dark)").matches; } catch { return false; }
+  }
+  function effectiveDark() { return theme === "dark" || (theme === "auto" && systemDark()); }
+  function applyTheme() {
+    if (!panelEl) return;
+    const d = effectiveDark();
+    panelEl.classList.toggle("dark", d);
+    const b = panelEl.querySelector("#cl-theme");
+    if (b) b.textContent = d ? "☀️" : "🌙";
+  }
+  async function loadTheme() {
+    try { theme = (await GM.getValue("cl_theme", "")) || "auto"; } catch { theme = "auto"; }
+  }
+  async function toggleTheme() {
+    theme = effectiveDark() ? "light" : "dark";
+    await GM.setValue("cl_theme", theme);
+    applyTheme();
+  }
+
+  // ---------- Chat-Verlauf ----------
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  }
+  function timeAgo(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return "gerade eben";
+    const m = Math.floor(s / 60); if (m < 60) return `vor ${m} Min`;
+    const h = Math.floor(m / 60); if (h < 24) return `vor ${h} Std`;
+    const d = Math.floor(h / 24); return `vor ${d} Tag${d > 1 ? "en" : ""}`;
+  }
+  function saveHistory() { return GM.setValue("cl_history", JSON.stringify(history)); }
+  async function loadHistory() {
+    try { const r = await GM.getValue("cl_history", ""); history = r ? JSON.parse(r) : []; } catch { history = []; }
+    if (!Array.isArray(history)) history = [];
+  }
+  function firstUserText() {
+    const e = state.transcript.find((x) => x.role === "user");
+    return e ? e.content : "";
+  }
+  function archiveCurrent() {
+    if (!state.transcript.some((e) => e.role === "user")) return;
+    const title = (firstUserText() || "Chat").replace(/\s+/g, " ").slice(0, 50);
+    history.unshift({ id: `${Date.now()}-${history.length}`, title, ts: Date.now(), transcript: state.transcript });
+    history = history.slice(0, 40);
+    saveHistory();
+  }
+  function renderHistory() {
+    const box = panelEl.querySelector("#cl-history");
+    if (!box) return;
+    if (!history.length) {
+      box.innerHTML = `<div class="cl-hist-empty">Noch keine gespeicherten Chats.<br>Mit ⟳ startest du einen neuen –<br>der alte landet dann hier.</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="cl-hist-head">Frühere Chats</div>` +
+      history.map((h, i) => `<div class="cl-hist-item" data-i="${i}"><div class="cl-hist-title">${escapeHtml(h.title)}</div><div class="cl-hist-time">${timeAgo(h.ts)}</div></div>`).join("");
+    box.querySelectorAll(".cl-hist-item").forEach((el) => el.addEventListener("click", () => loadChat(+el.dataset.i)));
+  }
+  function toggleHistory() {
+    const box = panelEl.querySelector("#cl-history");
+    if (box.classList.toggle("show")) renderHistory();
+  }
+  function loadChat(i) {
+    const item = history[i];
+    if (!item) return;
+    archiveCurrent();
+    state = { transcript: item.transcript.slice(), task: null };
+    saveState();
+    renderAll();
+    panelEl.querySelector("#cl-history").classList.remove("show");
   }
 
   // ---------- Rendern ----------
@@ -657,6 +776,9 @@ ${c.text}
     if (sel) sel.value = selectedModelId;
     await loadState();
     await loadUsage();
+    await loadHistory();
+    await loadTheme();
+    applyTheme();
     updateUsageEl();
     renderAll();
     if (state.task && state.task.active && state.task.count <= MAX_STEPS) {
