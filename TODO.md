@@ -2,6 +2,12 @@
 
 Ideen, offene Punkte und bekannte Grenzen für das Claude-Sidebar-Userscript.
 
+## Nächste Schritte (Priorität)
+- [ ] **Claude-Look/Branding entfernen** – „Claude"-Name weg (es ist nicht das echte Claude), aber **am Look von Claude für Chrome angelehnt** bleiben
+- [ ] **Eigenen Namen finden** – es ist „nur" ein Sidebar-Agent → passenden Produktnamen überlegen
+- [ ] **Bessere Modell-Alternative finden** – stärkeres/zuverlässigeres (idealerweise weiter kostenloses) Modell evaluieren
+- [ ] **Zum Ausprobieren freigeben** – an Leute zum Testen geben (Installationsanleitung, evtl. Raw-Install-Link)
+
 ## Offene Aufgaben
 - [ ] **Filter setzen** zuverlässiger machen (Dropdowns/JS-Menüs ohne festen Linktext, z. B. Größe/Farbe auf Shop-Seiten)
 - [ ] **Markdown-Formatierung** der Antworten (Fett, Listen, Code-Blöcke, klickbare Links statt rohem Text)
