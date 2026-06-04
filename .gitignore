@@ -1,0 +1,9 @@
+# Build-/Index-Artefakte
+.build/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
