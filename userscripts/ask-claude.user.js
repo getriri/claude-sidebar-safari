@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Claude Sidebar
 // @namespace    irene.claude.safari
-// @version      0.12.0
+// @version      0.13.0
 // @description  Angedockte Chat-Seitenleiste mit Browser-Agent & Modellwechsel (Groq / Gemini) – ohne Xcode
 // @author       Irene
 // @match        *://*/*
@@ -494,15 +494,18 @@
       ? `Du darfst KEINE Aktion mehr ausführen. Gib JETZT die finale Antwort in Prosa – basierend auf dem, was du unten siehst und weißt.`
       : `Du kannst pro Schritt EINE Steueraktion ausgeben – AUSSCHLIESSLICH eine einzige Zeile, exakt beginnend mit:
 @@NAVIGATE: <vollständige https-URL>
-@@CLICK: <exakter sichtbarer Linktext aus der Liste unten>
+@@CLICK: <exakter sichtbarer Linktext/Button aus der Liste unten>
+@@TYPE: <Text, der in das Suchfeld der AKTUELLEN Seite getippt und abgeschickt wird>
 Oder antworte NORMAL in Prosa = finale Antwort.
 
 REGELN (wichtig):
+- Du bist BEREITS auf einer Webseite. Bevorzuge IMMER Aktionen auf der AKTUELLEN Seite: Suchfeld via @@TYPE, Links/Buttons via @@CLICK.
+- Wenn der Nutzer „diese Seite", „hier", „Suchleiste/Suchfeld" oder „auf <Seitenname>" sagt: BLEIBE auf der aktuellen Seite und nutze @@TYPE für die seiteneigene Suche – NICHT Google.
+- Nutze @@NAVIGATE zu Google NUR, wenn die aktuelle Seite ungeeignet ist oder der Nutzer ausdrücklich eine Websuche will.
 - Geht die Antwort schon aus Textauszug/Links unten hervor: ANTWORTE direkt, KEINE Aktion.
-- Auf einer SUCHERGEBNIS-Seite: NICHT erneut suchen. Klicke ein passendes Ergebnis (@@CLICK mit dem Linktext) ODER antworte anhand der Snippets.
-- Navigiere NIE erneut zu einer bereits besuchten Seite (siehe Liste). Wiederhole keine Suche.
-- Erfinde keine URLs. Suche per @@NAVIGATE: https://www.google.com/search?q=DEINE+SUCHE
-- Bei einer Aktion: Gib NUR die @@-Zeile aus, KEINEN erklärenden Text davor. Bei @@CLICK exakt einen kurzen Linktext aus der Liste unten – keine ganzen Sätze.
+- Auf einer Suchergebnis-Seite: NICHT erneut dieselbe Suche; klicke ein Ergebnis oder antworte.
+- Wiederhole keine bereits erledigte Aktion (siehe besuchte Seiten unten).
+- Bei einer Aktion: NUR die @@-Zeile, KEINEN erklärenden Text davor. Kurze Werte, keine ganzen Sätze.
 - Höchstens ${MAX_STEPS} Aktionen. Aktueller Schritt: ${step}/${MAX_STEPS}.`;
     return `Du bist ein Browser-Assistent in einer Seitenleiste und erfüllst EINE Aufgabe, indem du die AKTUELLE Seite liest und dich bei Bedarf bewegst.
 
@@ -558,7 +561,7 @@ ${c.text}
       if (!key) { bubble.remove(); addEntry("assistant", `Kein ${providerName(m.provider)}-Key eingegeben.`); return; }
 
       const full = await streamLLM(m, key, (partial) => {
-        if (!_force && /@@(NAVIGATE|CLICK):/i.test(partial)) {
+        if (!_force && /@@(NAVIGATE|CLICK|TYPE):/i.test(partial)) {
           if (!acting) { bubble.classList.remove("thinking"); acting = true; }
           bubble.textContent = "↻ Aktion…";
         } else {
@@ -571,9 +574,11 @@ ${c.text}
       const trimmed = full.trim();
       // Aktion irgendwo im Text erkennen (Modell stellt oft Prosa voran)
       const nav = !_force && trimmed.match(/@@NAVIGATE:\s*(\S+)/i);
+      const typ = !_force && trimmed.match(/@@TYPE:\s*(.+?)\s*$/im);
       const clk = !_force && trimmed.match(/@@CLICK:\s*(.+?)\s*$/im);
 
       if (nav) { bubble.remove(); await doAction("navigate", nav[1]); return; }
+      if (typ) { bubble.remove(); await doAction("type", typ[1].trim()); return; }
       if (clk) { bubble.remove(); await doAction("click", clk[1].trim()); return; }
 
       const answer = trimmed.replace(/^@@\w+:\s*/i, "").trim() || "(leere Antwort)";
@@ -620,6 +625,26 @@ ${c.text}
       addEntry("status", `→ Öffne ${arg}`);
       await saveState();
       location.href = arg;
+      return;
+    }
+
+    if (type === "type") {
+      const tkey = "type:" + arg.toLowerCase().slice(0, 40);
+      if (state.task.clicked.includes(tkey)) {
+        addEntry("status", "(schon eingegeben – ich beantworte direkt)");
+        await saveState(); busy = false; await agentStep(true); return;
+      }
+      const input = findSearchInput();
+      if (!input) {
+        addEntry("status", "Kein Suchfeld gefunden – ich beantworte direkt.");
+        await saveState(); busy = false; await agentStep(true); return;
+      }
+      state.task.clicked.push(tkey);
+      addEntry("status", `→ Tippe „${arg}" ins Suchfeld`);
+      await saveState();
+      await showClick(input);
+      doType(input, arg); // tippt + schickt ab (kann Seitenwechsel auslösen)
+      setTimeout(() => { busy = false; agentStep(); }, 1300); // ohne Navigation inline weiter
       return;
     }
 
@@ -680,6 +705,44 @@ ${c.text}
       await sleep(260);
       el.classList.remove("cl-highlight");
       if (cursorEl) cursorEl.classList.remove("show");
+    } catch { /* egal */ }
+  }
+
+  function isVisible(el) {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 4 && r.height > 4 && getComputedStyle(el).visibility !== "hidden";
+  }
+  function findSearchInput() {
+    const selectors = [
+      'input[type=search]',
+      'input[name*=search i]', 'input[id*=search i]', 'input[placeholder*=search i]', 'input[aria-label*=search i]',
+      'input[name*=such i]', 'input[id*=such i]', 'input[placeholder*=such i]', 'input[aria-label*=such i]',
+      'input[name=q]', 'input[name*=query i]',
+      '[role=search] input', 'form[role=search] input',
+    ];
+    for (const s of selectors) {
+      for (const el of document.querySelectorAll(s)) if (isVisible(el)) return el;
+    }
+    const inputs = Array.from(document.querySelectorAll('input[type=text], input:not([type]), textarea'));
+    return inputs.find(isVisible) || null;
+  }
+  function setNativeValue(el, value) {
+    const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    if (setter) setter.call(el, value); else el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  function doType(el, text) {
+    try {
+      el.focus();
+      setNativeValue(el, text);
+      for (const t of ["keydown", "keypress", "keyup"]) {
+        el.dispatchEvent(new KeyboardEvent(t, { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true }));
+      }
+      const form = el.closest("form");
+      if (form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
     } catch { /* egal */ }
   }
 
