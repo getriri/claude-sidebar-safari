@@ -1,192 +1,192 @@
-# Claude Sidebar für Safari
+# Claude Sidebar for Safari
 
-Eine angedockte **Chat-Seitenleiste mit Browser-Agent** für Safari – optisch an „Claude für Chrome" angelehnt, aber **ohne Xcode** und ohne native App. Realisiert als **Userscript** über die kostenlose [Userscripts](https://apps.apple.com/app/userscripts/id1463298887)-App.
+A docked **chat sidebar with a browser agent** for Safari — styled after "Claude for Chrome", but **without Xcode** and without a native app. Built as a **userscript** running in the free [Userscripts](https://apps.apple.com/app/userscripts/id1463298887) app.
 
-Die Sidebar kann den Inhalt der aktuellen Seite **lesen**, Fragen **beantworten**, und als einfacher **Agent** selbstständig **navigieren** und **klicken** – mit sichtbarer Cursor-Animation. Als KI-Backend dienen **kostenlose Modelle** von Groq (Llama) oder Google Gemini, frei umschaltbar.
+The sidebar can **read** the current page, **answer** questions, and act as a simple **agent** that **navigates** and **clicks** on its own — with a visible cursor animation. The AI backend uses **free models** from Groq (Llama) or Google Gemini, switchable at any time.
 
-> ⚠️ **Hinweis zum Namen:** Das Tool sieht aus wie Claude und heißt intern „Claude Sidebar", nutzt aber **nicht** das echte Claude/Anthropic. Es gibt keine offizielle Möglichkeit, ein eigenes Tool mit dem claude.ai-Abo zu verbinden – jedes selbstgebaute Tool braucht einen eigenen API-Key eines Anbieters. Hier sind das Groq und Google Gemini (beide mit kostenlosem Kontingent).
+> ⚠️ **About the name:** The tool looks like Claude and is internally called "Claude Sidebar", but it does **not** use the real Claude/Anthropic. There is no official way to connect a custom tool to a claude.ai subscription — any self-built tool needs its own provider API key. Here those are Groq and Google Gemini (both with a free tier).
 
 ---
 
-## Inhalt
-- [Funktionen](#funktionen)
+## Contents
+- [Features](#features)
 - [Installation](#installation)
-- [API-Key holen](#api-key-holen)
-- [Benutzung](#benutzung)
-- [Modelle](#modelle)
-- [Kosten & Limits](#kosten--limits)
-- [Wie der Agent funktioniert](#wie-der-agent-funktioniert)
-- [Konfiguration](#konfiguration)
-- [Grenzen](#grenzen-ehrlich)
-- [Fehlerbehebung](#fehlerbehebung)
-- [Projektstruktur](#projektstruktur)
+- [Getting an API key](#getting-an-api-key)
+- [Usage](#usage)
+- [Models](#models)
+- [Cost & limits](#cost--limits)
+- [How the agent works](#how-the-agent-works)
+- [Configuration](#configuration)
+- [Limitations (honest)](#limitations-honest)
+- [Troubleshooting](#troubleshooting)
+- [Project structure](#project-structure)
 
 ---
 
-## Funktionen
+## Features
 
-| Funktion | Beschreibung |
+| Feature | Description |
 |---|---|
-| 💬 **Chat-Seitenleiste** | Rechts angedockt, volle Höhe, Claude-Optik. Per ✦-Button auf-/zuklappbar. |
-| 📄 **Seite lesen** | Bei jeder Frage bekommt das Modell URL, Titel, die wichtigsten Links und einen Textauszug der aktuellen Seite – es rät keine Inhalte. |
-| 🤖 **Browser-Agent** | Kann selbst `@@NAVIGATE` (Seite/Suche öffnen) und `@@CLICK` (Link/Button anklicken) ausführen und nach Seitenwechseln automatisch weitermachen. |
-| 🖱️ **Cursor-Animation** | Vor einem Klick scrollt die Seite zum Element, ein Cursor-Punkt fährt hin, hebt es hervor und „klickt" – sichtbar wie bei Claude für Chrome. |
-| ⚡ **Live-Streaming** | Antworten tippen sich Token für Token ein (mit automatischem Fallback). |
-| 🔀 **Modellwechsel** | Dropdown oben: zwischen Groq- und Gemini-Modellen umschalten – nützlich, wenn ein Gratis-Limit erschöpft ist. |
-| 📊 **Verbrauchszähler** | „X heute" zeigt die Anzahl der API-Anfragen des Tages (setzt sich täglich zurück). |
-| 💾 **Persistenz** | Chatverlauf, gewähltes Modell und API-Keys werden lokal gespeichert (über `GM`-Storage) und überstehen Seitenwechsel. |
+| 💬 **Chat sidebar** | Docked on the right, full height, Claude-style look. Toggle with the ✦ button. |
+| 📄 **Page reading** | For every question the model receives the URL, title, the most relevant links and a text excerpt of the current page — it does not guess content. |
+| 🤖 **Browser agent** | Can perform `@@NAVIGATE` (open a page/search) and `@@CLICK` (click a link/button) on its own, and continue automatically after page changes. |
+| 🖱️ **Cursor animation** | Before a click, the page scrolls to the element, a cursor dot moves to it, highlights it and "clicks" — visible like in Claude for Chrome. |
+| ⚡ **Live streaming** | Answers type in token by token (with an automatic fallback). |
+| 🔀 **Model switching** | Dropdown at the top: switch between Groq and Gemini models — useful when one free limit is exhausted. |
+| 📊 **Usage counter** | "X today" shows the number of API requests for the day (resets daily). |
+| 💾 **Persistence** | Chat history, selected model and API keys are stored locally (via `GM` storage) and survive page changes. |
 
 ---
 
 ## Installation
 
-1. **Userscripts-App installieren** (kostenlos, aus dem Mac App Store):
-   [Userscripts von Justin Wasack](https://apps.apple.com/app/userscripts/id1463298887)
-2. In **Safari → Einstellungen → Erweiterungen** die **Userscripts**-Erweiterung aktivieren.
-3. Den Website-Zugriff der Erweiterung auf **„Für alle Websites erlauben"** stellen.
-4. Userscripts-Symbol in der Toolbar → **Zahnrad ⚙️** → **Userscripts Directory** auf den Ordner [`userscripts/`](userscripts/) dieses Repos setzen (über den Datei-Dialog – wegen Sandbox-Berechtigung).
-5. Das Script [`ask-claude.user.js`](userscripts/ask-claude.user.js) erscheint nun in der Liste. Sicherstellen, dass es **aktiviert** ist.
-6. Eine beliebige Webseite mit `Cmd+R` neu laden → unten rechts erscheint der **✦-Button**.
+1. **Install the Userscripts app** (free, from the Mac App Store):
+   [Userscripts by Justin Wasack](https://apps.apple.com/app/userscripts/id1463298887)
+2. In **Safari → Settings → Extensions**, enable the **Userscripts** extension.
+3. Set the extension's website access to **"Allow on Every Website"**.
+4. Userscripts toolbar icon → **gear ⚙️** → set the **Userscripts Directory** to this repo's [`userscripts/`](userscripts/) folder (via the file dialog — required for the sandbox permission).
+5. The script [`ask-claude.user.js`](userscripts/ask-claude.user.js) now appears in the list. Make sure it is **enabled**.
+6. Reload any web page with `Cmd+R` → the **✦ button** appears in the bottom-right corner.
 
 ---
 
-## API-Key holen
+## Getting an API key
 
-Beide Anbieter sind kostenlos und **ohne Kreditkarte** nutzbar. Der Key wird beim ersten Senden abgefragt und nur **lokal** gespeichert.
+Both providers are free and usable **without a credit card**. The key is requested on first send and stored **locally only**.
 
-### Groq (Standard, empfohlen)
-1. [console.groq.com/keys](https://console.groq.com/keys) → mit Google-Konto einloggen.
-2. **Create API Key** → kopieren (beginnt mit `gsk_…`).
+### Groq (default, recommended)
+1. [console.groq.com/keys](https://console.groq.com/keys) → sign in with a Google account.
+2. **Create API Key** → copy it (starts with `gsk_…`).
 
 ### Google Gemini
-1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → mit Google-Konto einloggen.
-2. **Create API key** → am besten **in einem neuen Projekt** → kopieren (beginnt mit `AIza…`).
+1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → sign in with a Google account.
+2. **Create API key** → ideally **in a new project** → copy it (starts with `AIza…`).
 
-> Key ändern: jederzeit über den **🔑-Button** in der Sidebar (ändert den Key des aktuell gewählten Anbieters).
-
----
-
-## Benutzung
-
-- **Normaler Chat / Seite zusammenfassen:** Sidebar öffnen, Frage stellen. Das Modell sieht die aktuelle Seite. (= 1 Anfrage)
-- **Text markieren → fragen:** Markierten Text auswählen, dann Sidebar öffnen – die Markierung wird automatisch zitiert.
-- **Agenten-Aufgabe:** z. B. „Öffne reutlingen-university.de und finde den Studiengang Human Centered Computing". Der Agent navigiert/klickt selbst (mehrere Anfragen).
-- **⟳** = neuer Chat / Agent stoppen · **✕** = schließen · **🔑** = Key ändern.
-
-**Tipp:** Für zuverlässige Ergebnisse direkt auf eine bekannte Seite zielen, statt über Google zu „hüpfen".
+> Change a key anytime via the **🔑 button** in the sidebar (changes the key of the currently selected provider).
 
 ---
 
-## Modelle
+## Usage
 
-Im Dropdown oben wählbar:
+- **Normal chat / summarize page:** open the sidebar, ask a question. The model sees the current page. (= 1 request)
+- **Select text → ask:** select some text, then open the sidebar — the selection is quoted automatically.
+- **Agent task:** e.g. "Open reutlingen-university.de and find the Human Centered Computing program." The agent navigates/clicks on its own (multiple requests).
+- **⟳** = new chat / stop agent · **✕** = close · **🔑** = change key.
 
-| Modell | Anbieter | Charakter |
+**Tip:** for reliable results, target a known site directly instead of "hopping" through Google.
+
+---
+
+## Models
+
+Selectable in the dropdown at the top:
+
+| Model | Provider | Character |
 |---|---|---|
-| **Llama 3.3 70B** | Groq | **Bester Allrounder** – klug, kostenlos, schnell. Standard & Empfehlung. |
-| **Llama 3.1 8B (schnell)** | Groq | Sehr schnell & günstig im Verbrauch, einfacher. Gut für simple Zusammenfassungen. |
-| **Gemini 2.5 Flash-Lite** | Google | Großzügiges Gratis-Tageslimit, solide. |
-| **Gemini 2.5 Flash** | Google | Etwas klüger als Lite, knapperes Gratis-Limit. |
+| **Llama 3.3 70B** | Groq | **Best all-rounder** — smart, free, fast. Default & recommendation. |
+| **Llama 3.1 8B (fast)** | Groq | Very fast & cheap on usage, simpler. Good for plain summaries. |
+| **Gemini 2.5 Flash-Lite** | Google | Generous free daily limit, solid. |
+| **Gemini 2.5 Flash** | Google | A bit smarter than Lite, tighter free limit. |
 
-**Empfehlung „klug + günstig": Groq Llama 3.3 70B.** Reicht das Tageslimit nicht, im Dropdown auf einen anderen Anbieter wechseln.
-
----
-
-## Kosten & Limits
-
-- Alle hinterlegten Modelle haben ein **kostenloses Kontingent** – für persönliche Nutzung i. d. R. ausreichend.
-- Der **Agent verbraucht mehr**: Jeder Navigations-/Klick-Schritt ist eine eigene API-Anfrage. Eine Agenten-Aufgabe = mehrere Anfragen.
-- Der **Verbrauchszähler** („X heute") hilft, den Überblick zu behalten.
-- **Limit erreicht?** Anbieter im Dropdown wechseln **oder** bis zum nächsten Tag warten (Gemini-Gratis-Tier setzt sich nach Pacific Time zurück, ~9 Uhr MESZ).
-- Sparen: oft **⟳** drücken (kürzt den Kontext), einfache Fragen statt Agenten-Aufgaben, `MAX_STEPS` niedrig halten.
+**Recommendation for "smart + cheap": Groq Llama 3.3 70B.** If its daily limit runs out, switch to another provider in the dropdown.
 
 ---
 
-## Wie der Agent funktioniert
+## Cost & limits
 
-Der Agent nutzt ein einfaches **ReAct-Textprotokoll**: In der Systemanweisung bekommt das Modell die aktuelle Seite plus die Aufgabe und darf pro Schritt **eine** Steuerzeile ausgeben:
+- All bundled models have a **free tier** — usually enough for personal use.
+- The **agent consumes more**: every navigate/click step is a separate API request. One agent task = several requests.
+- The **usage counter** ("X today") helps you keep track.
+- **Hit the limit?** Switch providers in the dropdown **or** wait until the next day (Gemini's free tier resets at Pacific midnight).
+- Save quota: press **⟳** often (trims the context), prefer simple questions over agent tasks, keep `MAX_STEPS` low.
+
+---
+
+## How the agent works
+
+The agent uses a simple **ReAct text protocol**: the system prompt gives the model the current page plus the task, and it may output **one** control line per step:
 
 ```
-@@NAVIGATE: <vollständige https-URL>
-@@CLICK: <sichtbarer Linktext>
+@@NAVIGATE: <full https URL>
+@@CLICK: <visible link text>
 ```
 
-…oder es antwortet normal in Prosa (= finale Antwort). Ablauf:
+…or it answers normally in prose (= final answer). Flow:
 
-1. Nutzer stellt eine Aufgabe → Modell entscheidet: antworten, navigieren oder klicken.
-2. Bei einer Aktion wird der Zustand (`cl_state`) gespeichert und die Seite gewechselt/geklickt.
-3. Nach dem Neuladen erkennt das Script die laufende Aufgabe und macht **automatisch** weiter.
-4. Schutzmechanismen verhindern Endlosschleifen:
-   - **`MAX_STEPS`** (Standard 4) begrenzt die Aktionen pro Aufgabe.
-   - Bereits **besuchte URLs** und bereits **geklickte Ziele** werden nicht wiederholt.
-   - Statt Abbruch wird am Ende eine **finale Antwort erzwungen**.
+1. The user gives a task → the model decides: answer, navigate or click.
+2. On an action, the state (`cl_state`) is saved and the page is changed/clicked.
+3. After reloading, the script detects the running task and continues **automatically**.
+4. Safeguards prevent infinite loops:
+   - **`MAX_STEPS`** (default 4) limits actions per task.
+   - Already **visited URLs** and already **clicked targets** are not repeated.
+   - Instead of aborting, a **final answer is forced** at the end.
 
-Technisch: Streaming primär per nativem `fetch`; bei strenger Seiten-CSP automatischer Fallback auf `GM.xmlHttpRequest`. Anbieterabhängige Anfrage-/Antwortformate (Gemini vs. OpenAI-kompatibles Groq) sind gekapselt.
+Technical: streaming primarily via native `fetch`; on strict page CSP it automatically falls back to `GM.xmlHttpRequest`. Provider-specific request/response formats (Gemini vs. OpenAI-compatible Groq) are encapsulated.
 
 ---
 
-## Konfiguration
+## Configuration
 
-Im Kopf von [`userscripts/ask-claude.user.js`](userscripts/ask-claude.user.js):
+At the top of [`userscripts/ask-claude.user.js`](userscripts/ask-claude.user.js):
 
 ```js
-const MAX_STEPS = 4;            // max. Agenten-Schritte pro Aufgabe
-const MODELS = [ … ];           // verfügbare Modelle/Anbieter
-let selectedModelId = "groq-llama-70b"; // Standardmodell
+const MAX_STEPS = 4;            // max. agent steps per task
+const MODELS = [ … ];           // available models/providers
+let selectedModelId = "groq-llama-70b"; // default model
 ```
 
-Weitere Stellschrauben im Code:
-- `max_tokens` / `maxOutputTokens` (Antwortlänge, in `buildRequest`)
-- Kontextgröße: `.slice(0, 15)` (Links) und `.slice(0, 1500)` (Textauszug) in `pageContext`
-- Cursor-Optik: `#cl-cursor` und `.cl-highlight` im CSS
-- Akzentfarbe: `const ACCENT`
+Other knobs in the code:
+- `max_tokens` / `maxOutputTokens` (answer length, in `buildRequest`)
+- Context size: `.slice(0, 15)` (links) and `.slice(0, 1500)` (text excerpt) in `pageContext`
+- Cursor look: `#cl-cursor` and `.cl-highlight` in the CSS
+- Accent color: `const ACCENT`
 
 ---
 
-## Grenzen (ehrlich)
+## Limitations (honest)
 
-Dies ist ein **Userscript mit kostenlosen Modellen**, kein Produkt wie das offizielle agentische „Claude für Chrome". Realistisch zuverlässig:
+This is a **userscript with free models**, not a product like the official agentic "Claude for Chrome". Reliably works:
 
-✅ Seiten lesen, zusammenfassen, übersetzen, Fragen beantworten
-✅ Suchen, Seiten öffnen, einfache Links anklicken
+✅ Reading, summarizing, translating pages, answering questions
+✅ Searching, opening pages, clicking simple links
 
-Schwierig / unzuverlässig:
+Hard / unreliable:
 
-⚠️ Komplexe Shop-Interaktionen (Warenkorb, Größe wählen, Checkout, Login)
-⚠️ JavaScript-Buttons, Cookie-Banner, Seiten mit sehr strenger Sicherheitsrichtlinie
-⚠️ Mehrschritt-Aufgaben über viele Seiten hinweg
+⚠️ Complex shop interactions (cart, size selection, checkout, login)
+⚠️ JavaScript buttons, cookie banners, pages with very strict security policies
+⚠️ Multi-step tasks across many pages
 
-Die Cursor-Animation ist eine **visuelle Nachbildung** – sie zeigt, *wohin* geklickt wird; der Klick erfolgt per Code.
+The cursor animation is a **visual reproduction** — it shows *where* a click happens; the click itself is performed in code.
 
 ---
 
-## Fehlerbehebung
+## Troubleshooting
 
-| Problem | Ursache / Lösung |
+| Problem | Cause / fix |
 |---|---|
-| Script erscheint nicht | Userscripts Directory auf `userscripts/` setzen, dann 🔄 Refresh. |
-| ✦-Button fehlt | Erweiterung muss Zugriff auf „alle Websites" haben; Seite neu laden. |
-| `limit: 0` (Gemini) | Key in einem **neuen** Projekt erstellen; ggf. auf `gemini-2.5-flash-lite` wechseln. |
-| „quota exceeded" | Tageslimit erreicht → Modell wechseln oder warten. |
-| Kein Live-Streaming | Seite blockt `fetch` (CSP) → Fallback liefert die Antwort komplett am Ende. Bei Groq je nach CORS möglich. |
-| Agent tut nichts | Auf älteren Versionen wurden Aktionen mit Prosa davor nicht erkannt – aktuelle Version nutzen (≥ 0.9.1). |
+| Script does not appear | Set the Userscripts Directory to `userscripts/`, then 🔄 Refresh. |
+| ✦ button missing | The extension needs access to "all websites"; reload the page. |
+| `limit: 0` (Gemini) | Create the key in a **new** project; possibly switch to `gemini-2.5-flash-lite`. |
+| "quota exceeded" | Daily limit reached → switch models or wait. |
+| No live streaming | The page blocks `fetch` (CSP) → the fallback delivers the full answer at the end. With Groq it depends on CORS. |
+| Agent does nothing | Older versions failed to detect actions preceded by prose — use the current version (≥ 0.9.1). |
 
 ---
 
-## Projektstruktur
+## Project structure
 
 ```
 .
 ├── README.md
 ├── .gitignore
 └── userscripts/
-    └── ask-claude.user.js   # das gesamte Userscript (UI, Agent, LLM-Anbindung)
+    └── ask-claude.user.js   # the entire userscript (UI, agent, LLM integration)
 ```
 
-Das Script ist **eigenständig** (Vanilla JS, keine Build-Schritte, keine Abhängigkeiten). Alles – UI, Styles, Agent-Logik, API-Aufrufe – steckt in dieser einen Datei.
+The script is **self-contained** (vanilla JS, no build step, no dependencies). Everything — UI, styles, agent logic, API calls — lives in this single file.
 
 ---
 
-## Lizenz
+## License
 
-Privates Projekt. Nutzung auf eigene Verantwortung; die jeweiligen API-Nutzungsbedingungen von Groq und Google gelten.
+Personal project. Use at your own risk; the respective API terms of service of Groq and Google apply.
