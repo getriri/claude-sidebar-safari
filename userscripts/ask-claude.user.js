@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Claude Sidebar
 // @namespace    irene.claude.safari
-// @version      0.11.0
+// @version      0.12.0
 // @description  Angedockte Chat-Seitenleiste mit Browser-Agent & Modellwechsel (Groq / Gemini) – ohne Xcode
 // @author       Irene
 // @match        *://*/*
@@ -33,6 +33,7 @@
   ];
 
   let selectedModelId = "groq-llama-70b";
+  let layoutWidth = 400, layoutSide = "right";
   let theme = "auto"; // "light" | "dark" | "auto"
   let history = []; // [{id, title, ts, transcript}]
   let state = { transcript: [], task: null };
@@ -85,6 +86,15 @@
         --border: rgba(255,255,255,.13);
         --input: rgba(255,255,255,.09);
       }
+      #cl-panel.left { left: 0; right: auto; transform: translateX(-100%);
+        border-left: none; border-right: 1px solid var(--border);
+        box-shadow: 10px 0 44px rgba(0,0,0,.24); }
+      #cl-resize { position: absolute; top: 0; bottom: 0; left: 0; width: 8px;
+        cursor: ew-resize; z-index: 6; }
+      #cl-resize:hover { background: linear-gradient(90deg, ${ACCENT}55, transparent); }
+      #cl-panel.left #cl-resize { left: auto; right: 0;
+        background-image: linear-gradient(270deg, ${ACCENT}00, transparent); }
+      #cl-panel.left #cl-resize:hover { background: linear-gradient(270deg, ${ACCENT}55, transparent); }
       #cl-panel.open { transform: translateX(0); }
       #cl-header {
         display: flex; align-items: center; gap: 5px; padding: 11px 12px;
@@ -168,12 +178,14 @@
     panelEl = document.createElement("div");
     panelEl.id = "cl-panel";
     panelEl.innerHTML = `
+      <div id="cl-resize" title="Breite ziehen"></div>
       <div id="cl-header">
         <span style="color:${ACCENT};font-size:18px;">✦</span>
         <select id="cl-model" title="Modell wählen"></select>
         <span id="cl-usage" title="Anfragen heute (Gratis-Limit setzt sich täglich zurück)">0 heute</span>
         <button id="cl-hist-btn" title="Chat-Verlauf">🕘</button>
         <button id="cl-theme" title="Hell / Dunkel">🌙</button>
+        <button id="cl-dock" title="Seite wechseln (links/rechts)">⇆</button>
         <button id="cl-key" title="API-Key des Modells ändern">🔑</button>
         <button id="cl-clear" title="Neuer Chat / Stopp">⟳</button>
         <button id="cl-close" title="Schließen">✕</button>
@@ -203,6 +215,8 @@
     panelEl.querySelector("#cl-key").addEventListener("click", changeKey);
     panelEl.querySelector("#cl-theme").addEventListener("click", toggleTheme);
     panelEl.querySelector("#cl-hist-btn").addEventListener("click", toggleHistory);
+    panelEl.querySelector("#cl-dock").addEventListener("click", toggleDock);
+    panelEl.querySelector("#cl-resize").addEventListener("mousedown", startResize);
     sendBtn.addEventListener("click", onSend);
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
@@ -237,6 +251,49 @@
     renderAll();
     const box = panelEl.querySelector("#cl-history");
     if (box) box.classList.remove("show");
+  }
+
+  // ---------- Layout (Breite / Seite) ----------
+  function saveLayout() { return GM.setValue("cl_layout", JSON.stringify({ width: layoutWidth, side: layoutSide })); }
+  async function loadLayout() {
+    try {
+      const o = JSON.parse(await GM.getValue("cl_layout", "")) || {};
+      layoutWidth = o.width || 400;
+      layoutSide = o.side === "left" ? "left" : "right";
+    } catch { layoutWidth = 400; layoutSide = "right"; }
+  }
+  function clampWidth(w) { return Math.max(300, Math.min(Math.round(window.innerWidth * 0.92), w)); }
+  function applyLayout() {
+    if (!panelEl) return;
+    layoutWidth = clampWidth(layoutWidth);
+    panelEl.classList.toggle("left", layoutSide === "left");
+    panelEl.style.width = layoutWidth + "px";
+    panelEl.style.maxWidth = "95vw";
+  }
+  function toggleDock() {
+    layoutSide = layoutSide === "left" ? "right" : "left";
+    saveLayout();
+    applyLayout();
+  }
+  function startResize(e) {
+    e.preventDefault();
+    const prevTransition = panelEl.style.transition;
+    panelEl.style.transition = "none";
+    document.body.style.userSelect = "none";
+    const onMove = (ev) => {
+      const x = ev.clientX;
+      layoutWidth = clampWidth(layoutSide === "left" ? x : window.innerWidth - x);
+      panelEl.style.width = layoutWidth + "px";
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      panelEl.style.transition = prevTransition;
+      saveLayout();
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   }
 
   // ---------- Theme (Hell/Dunkel) ----------
@@ -647,6 +704,7 @@ ${c.text}
     for (const el of els) {
       const et = txt(el).toLowerCase();
       if (!et) continue;
+
       let score = 0;
       for (const w of words) if (et.includes(w)) score++;
       if (score > bestScore) { bestScore = score; best = el; }
@@ -780,7 +838,9 @@ ${c.text}
     await loadUsage();
     await loadHistory();
     await loadTheme();
+    await loadLayout();
     applyTheme();
+    applyLayout();
     updateUsageEl();
     renderAll();
     if (state.task && state.task.active && state.task.count <= MAX_STEPS) {
